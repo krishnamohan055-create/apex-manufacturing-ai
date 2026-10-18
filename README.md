@@ -170,3 +170,5 @@ Our hackathon presentation deck is pre-compiled and included in the repository:
 
 ## 📜 License
 Distributed under the MIT License. Built for the Google Cloud & Gemini AI Hackathon.
+#   a p e x - m a n u f a c t u r i n g - a i  
+ 
