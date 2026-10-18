@@ -340,7 +340,62 @@ with tab_telemetry:
     metric_cols = [c for c in df_hist.columns if c not in ["Timestamp"]]
     chart_col = st.selectbox("Select Sensor Stream for Trend Analysis", metric_cols, index=0)
     
-    st.line_chart(df_hist[[chart_col]], height=300)
+    try:
+        st.line_chart(df_hist[[chart_col]], height=300)
+    except Exception as e:
+        # High-res Zero-Dependency SVG Fallback Chart
+        vals = df_hist[chart_col].tolist()
+        labels = df_hist.index.tolist()
+        min_v = min(vals) if vals else 0
+        max_v = max(vals) if vals else 1
+        rng = (max_v - min_v) if max_v != min_v else 1.0
+        
+        svg_w = 780
+        svg_h = 240
+        pad_x = 40
+        pad_y = 30
+        
+        pts = []
+        for idx, v in enumerate(vals):
+            x = pad_x + (idx / max(1, len(vals) - 1)) * (svg_w - 2 * pad_x)
+            y = (svg_h - pad_y) - ((v - min_v) / rng) * (svg_h - 2 * pad_y)
+            pts.append(f"{x:.1f},{y:.1f}")
+        
+        pts_str = " ".join(pts)
+        accent = "#f87171" if is_anomaly else "#38bdf8"
+        
+        svg_html = f"""
+        <div style="background: #131b2e; border: 1px solid #233052; border-radius: 8px; padding: 12px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px;">
+                <span>Stream: <strong>{chart_col.upper()}</strong></span>
+                <span>Max: {max_v:.2f} | Min: {min_v:.2f} | Current: <strong style="color: {accent};">{vals[-1]:.2f}</strong></span>
+            </div>
+            <svg viewBox="0 0 {svg_w} {svg_h}" style="width: 100%; height: 240px;">
+                <defs>
+                    <linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:{accent};stop-opacity:0.4" />
+                        <stop offset="100%" style="stop-color:{accent};stop-opacity:0.0" />
+                    </linearGradient>
+                </defs>
+                <!-- Gridlines -->
+                <line x1="{pad_x}" y1="{pad_y}" x2="{svg_w - pad_x}" y2="{pad_y}" stroke="#1e293b" stroke-dasharray="4" />
+                <line x1="{pad_x}" y1="{svg_h/2}" x2="{svg_w - pad_x}" y2="{svg_h/2}" stroke="#1e293b" stroke-dasharray="4" />
+                <line x1="{pad_x}" y1="{svg_h - pad_y}" x2="{svg_w - pad_x}" y2="{svg_h - pad_y}" stroke="#1e293b" stroke-dasharray="4" />
+                <!-- Area -->
+                <polygon points="{pad_x},{svg_h - pad_y} {pts_str} {svg_w - pad_x},{svg_h - pad_y}" fill="url(#grad1)" />
+                <!-- Line -->
+                <polyline fill="none" stroke="{accent}" stroke-width="3" points="{pts_str}" stroke-linecap="round" stroke-linejoin="round" />
+                <!-- End point circle -->
+                <circle cx="{pts[-1].split(',')[0]}" cy="{pts[-1].split(',')[1]}" r="5" fill="{accent}" />
+            </svg>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; margin-top: 4px;">
+                <span>{labels[0]}</span>
+                <span>{labels[len(labels)//2]}</span>
+                <span>{labels[-1]} (Live)</span>
+            </div>
+        </div>
+        """
+        st.markdown(svg_html, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
 # TAB 3: GEMINI PREDICTIVE MAINTENANCE & RCA
